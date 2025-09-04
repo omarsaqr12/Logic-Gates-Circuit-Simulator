@@ -1,0 +1,87 @@
+# Digital Circuit Simulator - Git Ignore File
+
+# Compiled binaries
+*.exe
+*.out
+main
+main_project
+
+# C++ compilation artifacts
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Simulation output files
+*.sim
+output.txt
+output.sim
+out.sim
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Windows specific
+*.lnk
+desktop.ini
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux specific
+*~
+
+# Log files
+*.log
+
+# Documentation build artifacts
+docs/_build/
+site/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST

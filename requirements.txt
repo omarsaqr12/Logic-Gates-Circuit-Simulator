@@ -1,0 +1,17 @@
+# Digital Circuit Simulator - Python Dependencies
+
+# Core scientific computing libraries
+numpy>=1.21.0
+
+# Plotting and visualization
+matplotlib>=3.5.0
+
+# GUI toolkit for the graphical interface
+tkinter  # Usually included with Python standard library
+
+# Optional: For better random number generation (already used in SG.py)
+# random - part of Python standard library
+
+# Development and testing (optional)
+# pytest>=6.0.0  # For unit testing
+# black>=21.0.0  # For code formatting

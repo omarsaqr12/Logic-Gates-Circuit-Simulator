@@ -1,0 +1,10 @@
+INPUTS:
+A
+B
+C
+D
+COMPONENTS:
+G0, XOR3, W0, A, B, C
+G1, NOR3, W1, B, C, D
+G2, OR2, W2, W0, W0
+G3, OR2, W3, W2, W1
