@@ -1,86 +1,69 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
+"""Small Tkinter interface for running and plotting a selected circuit."""
+from __future__ import annotations
+
 import subprocess
-import string
+import sys
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox
 
-# Define colors
-bg_color = "#334257"  # Background color for the window
-widget_bg_color = "#476072"  # Background color for widgets
-text_color = "#FFFFFF"  # Text color
-button_color = "#FFD32D"  # Button background color
-button_text_color = bg_color  # Button text color
-error_color = "#FF5959"  # Error message background color
+ROOT = Path(__file__).resolve().parents[1]
+selected: dict[str, Path] = {}
 
-file_names = []
 
-def extractor(s):
-    last_slash_index = s.rfind('/')
-    file_name = s[last_slash_index + 1:]
-    return file_name
+def choose_file(kind: str) -> None:
+    chosen = filedialog.askopenfilename(title=f"Select {kind.upper()} file")
+    if chosen:
+        selected[kind] = Path(chosen).resolve()
+        selection_label.config(text="\n".join(
+            f"{name.upper()}: {selected[name].name if name in selected else '(not selected)'}"
+            for name in ("lib", "cir", "stim")))
 
-def execute_command(command_string):
+
+def execute(command: list[str]) -> bool:
     try:
-        result = subprocess.run(command_string, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = result.stdout.decode('utf-8')
-        error = result.stderr.decode('utf-8')
-        
-        if output:
-            messagebox.showinfo("Output", output)
-        if error:
-            messagebox.showerror("Error", error)
-    except subprocess.CalledProcessError as e:
-        messagebox.showerror("Execution Error", f"Error executing command '{command_string}': {e}")
+        result = subprocess.run(command, cwd=ROOT, capture_output=True,
+                                text=True, check=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as error:
+        details = getattr(error, "stderr", "") or str(error)
+        messagebox.showerror("Execution failed", details)
+        return False
+    if result.stdout.strip():
+        messagebox.showinfo("Simulator", result.stdout.strip())
+    return True
 
-def go():
-    if len(file_names) < 3:
-        messagebox.showwarning("Warning", "Please upload all three required files.")
+
+def simulate() -> None:
+    if any(kind not in selected for kind in ("lib", "cir", "stim")):
+        messagebox.showwarning("Missing files", "Select a library, circuit and stimulus file.")
         return
-    execute_command("g++ -o main src/main.cpp")
-    command2 = ".\\main examples/tests/" + extractor(file_names[0]) + " examples/tests/" + extractor(file_names[1]) + " examples/tests/" + extractor(file_names[2])
-    execute_command(command2)
+    execute([sys.executable, str(ROOT / "tools" / "run_simulation.py"),
+             *(str(selected[kind]) for kind in ("lib", "cir", "stim"))])
 
-def go_2():
-    execute_command("code src/Graphing/output.sim")
-    execute_command("python -m src.Graphing.simulation_graphing")
 
-def upload_file():
-    filename = filedialog.askopenfilename()
-    if filename:
-        file_names.append(filename)
-        update_uploaded_files_label()
+def plot() -> None:
+    output = ROOT / "build" / "output.sim"
+    if not output.is_file():
+        messagebox.showwarning("Missing output", "Run a simulation before plotting.")
+        return
+    execute([sys.executable, str(ROOT / "tools" / "plot_waveform.py"), str(output)])
 
-def update_uploaded_files_label():
-    files = '\n'.join([extractor(fn) for fn in file_names])
-    label.config(text=f"Uploaded Files:\n{files}")
 
 root = tk.Tk()
-root.title("Logic Simulator")
-root.config(bg=bg_color)
+root.title("Digital Circuit Simulator")
+root.geometry("500x360")
+root.configure(bg="#334257")
 
-title_frame = tk.Frame(root, bg=bg_color)
-title_frame.pack(padx=10, pady=(10, 0))
-project_title = tk.Label(title_frame, text="Logic Simulator", bg=bg_color, fg=text_color, font=("Helvetica", 24))
-project_title.pack()
+tk.Label(root, text="Digital Circuit Simulator", bg="#334257", fg="white",
+         font=("Helvetica", 17, "bold")).pack(pady=12)
+selection_label = tk.Label(root, text="Select three input files", justify="left",
+                           bg="#476072", fg="white", padx=12, pady=8)
+selection_label.pack(fill="x", padx=18)
+for kind in ("lib", "cir", "stim"):
+    tk.Button(root, text=f"Select .{kind}",
+              command=lambda value=kind: choose_file(value)).pack(fill="x", padx=18, pady=3)
+tk.Button(root, text="Run simulation", command=simulate).pack(fill="x", padx=18, pady=5)
+tk.Button(root, text="Plot last output", command=plot).pack(fill="x", padx=18, pady=5)
 
-frame = tk.Frame(root, bg=bg_color)
-frame.pack(padx=10, pady=10)
-
-label = tk.Label(frame, text="No files uploaded.", padx=10, pady=10, bg=widget_bg_color, fg=text_color, font=("Helvetica", 12))
-label.pack()
-
-button_frame = tk.Frame(root, bg=bg_color)
-button_frame.pack(pady=10)
-
-upload_buttons = [
-    ("Upload LIB File", upload_file),
-    ("Upload CIR File", upload_file),
-    ("Upload STIM File", upload_file),
-    ("Run Code", go),
-    ("Open Simulation File", go_2)
-]
-
-for text, command in upload_buttons:
-    button = tk.Button(button_frame, text=text, command=command, bg=button_color, fg=button_text_color, font=("Helvetica", 14), height=2, width=20)
-    button.pack(fill=tk.X, pady=2, padx=10)
-
-root.mainloop()
+if __name__ == "__main__":
+    root.mainloop()

@@ -1,0 +1,33 @@
+name: Simulator checks
+on:
+  push:
+    branches: ["portfolio/**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install plotting dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test input handling and waveform parser
+        run: python -m unittest discover -s tests -v
+      - name: Assert independent basic-gate truth tables
+        run: |
+          mkdir -p build
+          g++ -std=c++17 -Wall -Wextra tests/gate_truth.cpp -o build/gate_truth
+          build/gate_truth
+      - name: Compile and smoke-test the legacy C++ simulator with the documented flag workaround
+        run: |
+          python tools/run_simulation.py examples/circuit_01/circuit_01.lib examples/circuit_01/circuit_01.cir examples/circuit_01/circuit_01.stim
+          test -s build/output.sim
+      - name: Generate a headless waveform image
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python tools/plot_waveform.py build/output.sim --save build/waveform.png
+          test -s build/waveform.png
