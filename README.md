@@ -15,7 +15,9 @@ python tools/run_simulation.py \
   examples/circuit_01/circuit_01.stim
 ```
 
-The runner compiles `src/main.cpp`, runs it in a temporary working directory, checks that it created a waveform, and copies the result to `build/output.sim`. This isolation is important because the original program writes fixed filenames (`o`, `output.txt`, and `Graphing/output.sim`) relative to its working directory. Use `--output path/to/result.sim` to choose a destination; `--timeout` limits the simulator's runtime for problematic inputs. Missing files and missing output are reported as errors.
+**Legacy source workaround:** the first CI run exposed an uninitialized `bool2` in the original C++ `violation_check`: it rejected a valid example with a spurious input/output conflict. To preserve the collaborators' historical engine, the runner copies `src/main.cpp` into its temporary build directory, checks for **exactly one** occurrence of `bool flag, bool2, pushed = 0;`, and initializes all three flags in that disposable copy before compiling. The original tracked engine is **not fixed** and direct `g++ src/main.cpp` can still exhibit this defect; use the documented runner. The workaround does not validate the engine's simulation semantics.
+
+The runner uses a temporary working directory, checks that the engine created a nonempty waveform, and copies it to `build/output.sim`. Isolation is important because the original program writes fixed filenames (`o`, `output.txt`, and `Graphing/output.sim`) relative to its working directory. Use `--output path/to/result.sim` to choose a destination; `--timeout` limits the simulator's runtime for problematic inputs. Missing files and missing output are reported as errors.
 
 For plotting:
 
@@ -34,7 +36,7 @@ To use the GUI, install Tkinter through your operating system if your Python dis
 An existing, small example is in [`examples/circuit_01/`](examples/circuit_01). Its library defines OR2 and NOT gates with Boolean expressions and delays, its `.cir` declares input wires and gate instances, and its `.stim` lists input changes such as `600, B, 1`. For the exact supported syntax, use the tracked examples rather than assuming compatibility with standard HDL or generic CSV libraries.
 
 - [`src/main.cpp`](src/main.cpp): original C++ file parsing, circuit traversal, logic evaluation, and timestamp generation. It includes [`src/Custom_gates.cpp`](src/Custom_gates.cpp), an expression evaluator for `~`, `&`, and `|`.
-- [`tools/run_simulation.py`](tools/run_simulation.py): compiler invocation, isolated working directory, input-path handling, failure/timeout reporting, and output collection.
+- [`tools/run_simulation.py`](tools/run_simulation.py): temporary-copy flag initialization, compiler invocation, isolated working directory, input-path handling, failure/timeout reporting, and output collection.
 - [`tools/plot_waveform.py`](tools/plot_waveform.py): three-column output parsing and per-wire digital timing plots.
 - [`src/gui.py`](src/gui.py): optional Tkinter file-selection interface.
 - [`tests/test_tools.py`](tests/test_tools.py): isolated-runner and waveform-parser tests; [CI](.github/workflows/ci.yml) also attempts an example compile/run and headless plot.
@@ -44,7 +46,7 @@ An existing, small example is in [`examples/circuit_01/`](examples/circuit_01). 
 - The C++ algorithm has not been independently checked against a reference event-driven simulator. Correctness for simultaneous changes, reconvergent paths, cycles, malformed expressions, and propagation-delay edge cases is **not established**. Avoid using its output for engineering decisions.
 - The original C++ parser and error paths assume well-formed input in places. In particular, its gate-library and stimulus handling may fail on malformed files; `--timeout` is a safety limit, not a circuit-validity check.
 - [`examples/circuit_05/circuit_05.cir`](examples/circuit_05/circuit_05.cir) contains an incomplete `NAND2` instance and refers to an undefined wire. It is preserved as historical material but **not** a passing example. Files in `examples/tests/` include intentionally invalid cases and are not a passing test suite.
-- The test suite verifies tooling and file format handling. The CI smoke run checks that one example produces a nonempty file, **not** that its timing or Boolean values agree with an independent oracle. No numerical timing-accuracy claim is made.
+- The test suite verifies tooling, the isolated initialization correction, and file format handling. The CI smoke run checks that one example produces a nonempty file, **not** that its timing or Boolean values agree with an independent oracle. No numerical timing-accuracy claim is made.
 - Historical diagrams and PDFs in `assets/` and `docs/` are retained without claiming their figures or conclusions were independently reproduced.
 
 ## Contributors and provenance
