@@ -1,235 +1,52 @@
-# Digital Circuit Simulator
+# Digital circuit simulator (educational project)
 
-A comprehensive digital circuit simulation tool written in C++ with Python visualization capabilities. This project simulates the behavior of digital logic circuits, calculates propagation delays, and provides graphical visualization of the simulation results.
+A collaborative C++17 digital-logic simulation project with a small Tkinter launcher and a Python waveform plotter. The C++ program reads gate definitions (`.lib`), a circuit description (`.cir`), and input transitions (`.stim`). It writes timestamped signal changes. The Python tools provide an isolated, cross-platform way to compile/run it and inspect the resulting waveform.
 
-## 🚀 Features
+**Scope:** an educational logic-and-delay simulator, **not** a validated HDL simulator, timing-signoff tool, or production EDA system. The original C++ simulation engine remains under review; a successful process exit is not proof that a circuit or its delays were simulated correctly.
 
-- **Circuit Simulation**: Simulates digital logic circuits with custom gate definitions
-- **Propagation Delay Calculation**: Accurately calculates and tracks signal propagation delays
-- **Multiple File Format Support**: Supports `.lib`, `.cir`, and `.stim` file formats
-- **Graphical Visualization**: Python-based plotting of simulation results
-- **GUI Interface**: User-friendly graphical interface for easy operation
-- **Error Handling**: Comprehensive error checking and validation
-- **Multiple Example Circuits**: Includes 5 example circuits for testing and learning
+## Quickstart (CLI)
 
-## 📁 Project Structure
-
-```
-digital-circuit-simulator/
-├── src/                          # Source code
-│   ├── main.cpp                  # Main C++ simulator
-│   ├── Custom_gates.cpp          # Custom logic gate implementations
-│   ├── gui.py                    # GUI application
-│   ├── runner.py                 # Command-line runner script
-│   └── Graphing/                 # Visualization module
-│       ├── SG.py                 # Signal graphing utilities
-│       └── simulation_graphing.py # Main graphing script
-├── examples/                     # Example circuits and test files
-│   ├── circuit_01/              # Example circuit 1
-│   ├── circuit_02/              # Example circuit 2
-│   ├── circuit_03/              # Example circuit 3
-│   ├── circuit_04/              # Example circuit 4
-│   ├── circuit_05/              # Example circuit 5
-│   └── tests/                   # Test files
-├── docs/                        # Documentation
-│   ├── project_requirements.pdf # Project requirements
-│   └── propagation_delay_graphs.pdf # Delay analysis
-└── assets/                      # Images and other assets
-```
-
-## 🔧 Installation
-
-### Prerequisites
-
-- **C++ Compiler**: GCC or any C++11 compatible compiler
-- **Python 3.7+**: For visualization and GUI
-- **Git**: For cloning the repository
-
-### Setup
-
-1. **Clone the repository**:
+Requires Python 3.10+ and a C++17 compiler (`g++` on PATH). Run from the repository root:
 
 ```bash
-git clone https://github.com/yourusername/digital-circuit-simulator.git
-cd digital-circuit-simulator
+python tools/run_simulation.py \
+  examples/circuit_01/circuit_01.lib \
+  examples/circuit_01/circuit_01.cir \
+  examples/circuit_01/circuit_01.stim
 ```
 
-2. **Install Python dependencies**:
+The runner compiles `src/main.cpp`, runs it in a temporary working directory, checks that it created a waveform, and copies the result to `build/output.sim`. This isolation is important because the original program writes fixed filenames (`o`, `output.txt`, and `Graphing/output.sim`) relative to its working directory. Use `--output path/to/result.sim` to choose a destination; `--timeout` limits the simulator's runtime for problematic inputs. Missing files and missing output are reported as errors.
+
+For plotting:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python tools/plot_waveform.py build/output.sim --save build/waveform.png
+# Omit --save to show the plot in a desktop window.
 ```
 
-3. **Compile the C++ simulator**:
+The parser expects each output row to contain **three** fields: `time_ps, wire_name, binary_value`. Each wire gets its own step trace. The plot assumes a value of zero before the first recorded change; this is a plotting convention, not a separately verified simulator result. The compatibility command `python -m src.Graphing.simulation_graphing build/output.sim` uses the same parser.
 
-```bash
-g++ -o main src/main.cpp
-```
+To use the GUI, install Tkinter through your operating system if your Python distribution lacks it (for example, `python3-tk` on Debian/Ubuntu), then run `python src/gui.py` from the repository root. Select the actual three files on your computer; the GUI passes their absolute paths to the runner without shell interpolation. Plotting additionally requires Matplotlib.
 
-## 📖 Usage
+## Input examples and implementation
 
-### Command Line Interface
+An existing, small example is in [`examples/circuit_01/`](examples/circuit_01). Its library defines OR2 and NOT gates with Boolean expressions and delays, its `.cir` declares input wires and gate instances, and its `.stim` lists input changes such as `600, B, 1`. For the exact supported syntax, use the tracked examples rather than assuming compatibility with standard HDL or generic CSV libraries.
 
-Run the simulator with three input files:
+- [`src/main.cpp`](src/main.cpp): original C++ file parsing, circuit traversal, logic evaluation, and timestamp generation. It includes [`src/Custom_gates.cpp`](src/Custom_gates.cpp), an expression evaluator for `~`, `&`, and `|`.
+- [`tools/run_simulation.py`](tools/run_simulation.py): compiler invocation, isolated working directory, input-path handling, failure/timeout reporting, and output collection.
+- [`tools/plot_waveform.py`](tools/plot_waveform.py): three-column output parsing and per-wire digital timing plots.
+- [`src/gui.py`](src/gui.py): optional Tkinter file-selection interface.
+- [`tests/test_tools.py`](tests/test_tools.py): isolated-runner and waveform-parser tests; [CI](.github/workflows/ci.yml) also attempts an example compile/run and headless plot.
 
-```bash
-./main <library_file> <circuit_file> <stimulus_file>
-```
+## Known limitations / verification status
 
-**Example**:
+- The C++ algorithm has not been independently checked against a reference event-driven simulator. Correctness for simultaneous changes, reconvergent paths, cycles, malformed expressions, and propagation-delay edge cases is **not established**. Avoid using its output for engineering decisions.
+- The original C++ parser and error paths assume well-formed input in places. In particular, its gate-library and stimulus handling may fail on malformed files; `--timeout` is a safety limit, not a circuit-validity check.
+- [`examples/circuit_05/circuit_05.cir`](examples/circuit_05/circuit_05.cir) contains an incomplete `NAND2` instance and refers to an undefined wire. It is preserved as historical material but **not** a passing example. Files in `examples/tests/` include intentionally invalid cases and are not a passing test suite.
+- The test suite verifies tooling and file format handling. The CI smoke run checks that one example produces a nonempty file, **not** that its timing or Boolean values agree with an independent oracle. No numerical timing-accuracy claim is made.
+- Historical diagrams and PDFs in `assets/` and `docs/` are retained without claiming their figures or conclusions were independently reproduced.
 
-```bash
-./main examples/tests/cells.lib examples/tests/2.cir examples/tests/1.stim
-```
+## Contributors and provenance
 
-### Graphical User Interface
-
-Launch the GUI application:
-
-```bash
-python src/gui.py
-```
-
-The GUI allows you to:
-
-- Upload library, circuit, and stimulus files
-- Run simulations with a single click
-- View simulation results graphically
-
-### Python Runner Script
-
-Use the automated runner script:
-
-```bash
-python src/runner.py
-```
-
-## 📄 File Formats
-
-### Library File (`.lib`)
-
-Defines logic gates with their behavior and propagation delays:
-
-```
-GATE_NAME, NUM_INPUTS, LOGIC_EXPRESSION, DELAY_PS
-OR2, 2, i1|i2, 200
-NOT, 1, ~i1, 50
-```
-
-### Circuit File (`.cir`)
-
-Describes the circuit structure and connections:
-
-```
-INPUTS:
-A
-B
-
-COMPONENTS:
-G0, OR2, W0, A, B
-G1, NOT, W1, B
-```
-
-### Stimulus File (`.stim`)
-
-Provides input signals over time:
-
-```
-TIME_PS, INPUT_NAME, VALUE
-0, A, 0
-100, A, 1
-200, B, 1
-```
-
-## 🎯 Example Circuits
-
-The project includes 5 example circuits demonstrating different logic configurations:
-
-1. **Circuit 01**: Basic OR and NOT gates
-2. **Circuit 02**: Complex combinational logic
-3. **Circuit 03**: Multi-level logic circuits
-4. **Circuit 04**: Advanced gate combinations
-5. **Circuit 05**: Comprehensive test circuit
-
-Each example includes:
-
-- Circuit diagram (`.png`)
-- Library file (`.lib`)
-- Circuit description (`.cir`)
-- Test stimuli (`.stim`)
-- Expected simulation results (`.sim`)
-
-## 🔬 How It Works
-
-1. **File Parsing**: The simulator reads and parses library, circuit, and stimulus files
-2. **Circuit Construction**: Builds an internal representation of the circuit
-3. **Logic Simulation**: Evaluates logic expressions using custom gate implementations
-4. **Delay Calculation**: Computes propagation delays through the circuit paths
-5. **Result Generation**: Outputs timestamped signal changes to a `.sim` file
-6. **Visualization**: Python scripts generate timing diagrams from simulation results
-
-## ⚠️ Error Handling
-
-The simulator includes comprehensive error checking:
-
-- **Gate Definition Errors**: Validates that all gates used in circuits are defined in libraries
-- **Input/Output Conflicts**: Ensures inputs are not used as outputs
-- **File Format Validation**: Checks file format correctness
-- **Logic Expression Validation**: Validates gate logic expressions
-
-## 🛠️ Development
-
-### Building from Source
-
-```bash
-# Compile with debug information
-g++ -g -o main_debug src/main.cpp
-
-# Compile with optimizations
-g++ -O3 -o main_optimized src/main.cpp
-```
-
-### Running Tests
-
-Test the simulator with provided examples:
-
-```bash
-# Test all example circuits
-for i in {1..5}; do
-    ./main examples/circuit_0$i/circuit_0$i.lib \
-           examples/circuit_0$i/circuit_0$i.cir \
-           examples/circuit_0$i/circuit_0$i.stim
-done
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👥 Authors
-
-- **Digital Design Team** - Initial work and development
-
-## 🙏 Acknowledgments
-
-- Thanks to the Digital Design course instructors for project guidance
-- Circuit simulation algorithms based on standard digital design principles
-- Python visualization inspired by modern EDA tools
-
-## 📚 References
-
-- Digital Design and Computer Architecture principles
-- Logic simulation and timing analysis methodologies
-- Standard file formats for digital circuit description
-
----
-
-**Note**: This simulator is designed for educational purposes and demonstrates fundamental concepts in digital circuit simulation and timing analysis.
+This is a collaborative project involving [Omar Saqr](https://github.com/omarsaqr12), [AdhamALI68](https://github.com/AdhamALI68), and [BeTechBo](https://github.com/BeTechBo). See the repository history and AdhamALI68's version history for contribution provenance; individual ownership of each component has not been independently established. The existing [MIT license](LICENSE) retains its original copyright notice. No licenses or historical research artifacts were changed as part of this cleanup.
