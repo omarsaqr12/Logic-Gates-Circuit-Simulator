@@ -17,7 +17,7 @@ python tools/run_simulation.py \
 
 The runner checks its three input paths, builds in an isolated temporary directory, enforces a simulator timeout, and copies nonempty output to `build/output.sim`. Use `--output path/to/result.sim` to specify another output destination or `--timeout 10` to adjust the simulation limit. The original engine writes fixed files relative to its working directory; the runner keeps these out of your checkout.
 
-**Historical C++ defect and workaround:** the original `src/main.cpp` declares `bool flag, bool2, pushed = 0;`, leaving `bool2` uninitialized. The first CI run demonstrated that this can spuriously reject a valid circuit. To preserve the original collaborative source, the runner checks for the exact statement and initializes all three flags *only in a disposable source copy* before compiling. Directly compiling `src/main.cpp` still has the defect. This narrow correction does not establish that the timing algorithm is generally correct.
+The C++ source initializes all three validation flags before use. The runner compiles the checked-in source directly and isolates generated files in a temporary working directory; it no longer rewrites a temporary source copy to work around the historical uninitialized flag. Known-answer inverter and OR-gate tests check selected outputs and delays. This focused repair does not establish general timing-algorithm correctness.
 
 To plot a result:
 

@@ -424,7 +424,7 @@ vector<vector<tuple<bool, string>>> violation_check(unordered_map<string, Compon
     vector<string> output_gates;
     vector<vector<tuple<bool, string>>> res; // Vector to store violation check results
     vector<tuple<bool, string>> t;
-    bool flag, bool2, pushed = 0;
+    bool flag = false, bool2 = false, pushed = false;
     string invalid_in_out = "\0";
 
     for (auto &x : component_library)

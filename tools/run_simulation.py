@@ -1,9 +1,9 @@
 """Compile and run the educational C++ circuit simulator in an isolated directory.
 
-The original program writes fixed relative paths. It also has an uninitialized
-validation flag; the runner patches *only* that exact statement in a temporary
-copy while retaining the historical source unchanged for provenance. This does
-not establish correctness of the original timing algorithm or input parser.
+The program writes fixed relative paths, so execution uses a temporary working
+directory. The checked-in C++ source is compiled directly, without modifying a
+temporary source copy. This does not establish general timing-algorithm or
+input-parser correctness.
 """
 from __future__ import annotations
 
@@ -17,18 +17,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src" / "main.cpp"
 DEFAULT_OUTPUT = ROOT / "build" / "output.sim"
-LEGACY_FLAG = "bool flag, bool2, pushed = 0;"
-INITIALIZED_FLAG = "bool flag = false, bool2 = false, pushed = false;"
-
-
-def prepare_source(source: Path, destination: Path) -> None:
-    """Apply one documented initialization correction to a disposable source copy."""
-    content = source.read_text(encoding="utf-8")
-    if content.count(LEGACY_FLAG) != 1:
-        raise RuntimeError("Cannot safely locate original validation flag; inspect source")
-    destination.write_text(content.replace(LEGACY_FLAG, INITIALIZED_FLAG), encoding="utf-8")
-
-
 def run(library: Path, circuit: Path, stimulus: Path, output: Path = DEFAULT_OUTPUT,
         *, compiler: str = "g++", timeout: int = 20) -> Path:
     inputs = [Path(p).expanduser().resolve() for p in (library, circuit, stimulus)]
@@ -42,11 +30,9 @@ def run(library: Path, circuit: Path, stimulus: Path, output: Path = DEFAULT_OUT
     with tempfile.TemporaryDirectory(prefix="logic-simulator-") as directory:
         work = Path(directory)
         (work / "Graphing").mkdir()
-        patched_source = work / "main.cpp"
-        prepare_source(SOURCE, patched_source)
         executable = work / "simulator"
         subprocess.run([compiler, "-std=c++17", "-O2", "-I", str(SOURCE.parent),
-                        "-o", str(executable), str(patched_source)],
+                        "-o", str(executable), str(SOURCE)],
                        cwd=ROOT, check=True, timeout=90)
         completed = subprocess.run([str(executable), *(str(path) for path in inputs)],
                                    cwd=work, capture_output=True, text=True,
