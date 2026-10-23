@@ -16,7 +16,7 @@ class RunnerTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         source = self.root / "src" / "main.cpp"
         source.parent.mkdir()
-        source.write_text("bool flag, bool2, pushed = 0;\nint main() { return 0; }\n", encoding="utf-8")
+        source.write_text("int main() { return 0; }\n", encoding="utf-8")
         self.paths = []
         for name in ("my library.lib", "circuit.cir", "stimulus.stim"):
             path = self.root / name
@@ -31,9 +31,7 @@ class RunnerTests(unittest.TestCase):
             calls.append((command, kwargs))
             self.assertNotIn("shell", kwargs)
             if len(calls) == 1:
-                patched = Path(command[-1]).read_text(encoding="utf-8")
-                self.assertIn(run_simulation.INITIALIZED_FLAG, patched)
-                self.assertNotIn(run_simulation.LEGACY_FLAG, patched)
+                self.assertEqual(Path(command[-1]), self.root / "src" / "main.cpp")
             if len(calls) == 2:
                 work = Path(kwargs["cwd"])
                 self.assertNotEqual(work, self.root)
@@ -47,18 +45,18 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result, self.output)
         self.assertEqual(self.output.read_text(encoding="utf-8"), "0, A, 1\n")
         self.assertEqual(calls[1][0][1:], [str(path) for path in self.paths])
-        self.assertIn(run_simulation.LEGACY_FLAG,
-                      (self.root / "src" / "main.cpp").read_text(encoding="utf-8"))
+        self.assertEqual((self.root / "src" / "main.cpp").read_text(encoding="utf-8"),
+                         "int main() { return 0; }\n")
 
-    def test_unrecognized_source_is_rejected_before_compilation(self):
+    def test_compilation_failure_is_reported(self):
         source = self.root / "src" / "main.cpp"
-        source.write_text("int main() { return 0; }\n", encoding="utf-8")
+        source.write_text("int main( invalid source\n", encoding="utf-8")
         with patch.object(run_simulation, "ROOT", self.root), \
              patch.object(run_simulation, "SOURCE", source), \
-             patch.object(run_simulation.subprocess, "run") as compiler:
-            with self.assertRaisesRegex(RuntimeError, "Cannot safely locate"):
+             patch.object(run_simulation.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "g++")) as compiler:
+            with self.assertRaises(subprocess.CalledProcessError):
                 run_simulation.run(*self.paths, self.output)
-            compiler.assert_not_called()
+            compiler.assert_called_once()
 
     def test_missing_input_does_not_start_compiler(self):
         with patch.object(run_simulation.subprocess, "run") as compiler:
